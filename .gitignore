@@ -3,3 +3,4 @@
 /cs231n/datasets/cifar-10-batches-py
 /cs231n/__pycache__
 /cs231n/classifiers/__pycache__
+/.DS_Store
