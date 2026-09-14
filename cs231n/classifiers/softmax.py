@@ -37,7 +37,15 @@ def softmax_loss_naive(W, X, y, reg):
         logp = np.log(p)
 
         loss -= logp[y[i]]  # negative log probability is the loss
-
+        
+        for k in range(num_classes):
+            if k == y[i]:
+                dW[:, k] += (p[k] - 1) * X[i]
+            else:
+                dW[:, k] += p[k] * X[i]
+                
+    dW /= num_train
+        
 
     # normalized hinge loss plus regularization
     loss = loss / num_train + reg * np.sum(W * W)
@@ -72,7 +80,17 @@ def softmax_loss_vectorized(W, X, y, reg):
     # result in loss.                                                           #
     #############################################################################
 
+    num_classes = W.shape[1]
+    num_train = X.shape[0]
+    
+    scores = X.dot(W) # shape: (N, C)
+    scores = scores - np.max(scores, axis=1, keepdims=True) # for numerical stability
+    p = np.exp(scores) # shape: (N, C)
+    p = p / np.sum(p, axis=1, keepdims=True) # normalize to get probabilities
 
+    correct_probs = p[np.arange(num_train), y] # shape: (N,)
+    
+    loss = -np.sum(np.log(correct_probs)) / num_train + reg * np.sum(W * W) # shape: (N,)
     #############################################################################
     # TODO:                                                                     #
     # Implement a vectorized version of the gradient for the softmax            #
@@ -83,5 +101,8 @@ def softmax_loss_vectorized(W, X, y, reg):
     # loss.                                                                     #
     #############################################################################
 
+    dscodes = p.copy() # shape: (N, C)
+    dscodes[np.arange(num_train), y] -= 1 # subtract 1 for the correct class
+    dW = X.T.dot(dscodes) / num_train + 2 * reg * W # shape: (D, C)
 
     return loss, dW
