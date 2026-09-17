@@ -91,7 +91,7 @@ def softmax_loss_vectorized(W, X, y, reg):
     correct_probs = p[np.arange(num_train), y] # shape: (N,)
     
     loss = -np.sum(np.log(correct_probs)) / num_train + reg * np.sum(W * W) # shape: (N,)
-    #############################################################################
+    ################################ #############################################
     # TODO:                                                                     #
     # Implement a vectorized version of the gradient for the softmax            #
     # loss, storing the result in dW.                                           #

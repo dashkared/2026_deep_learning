@@ -93,13 +93,14 @@ class LinearClassifier(object):
         - y_pred: Predicted labels for the data in X. y_pred is a 1-dimensional
           array of length N, and each element is an integer giving the predicted
           class.
-        """
-        y_pred = np.zeros(X.shape[0])
+        """    
         ###########################################################################
         # TODO:                                                                   #
         # Implement this method. Store the predicted labels in y_pred.            #
         ###########################################################################
 
+        scores = X.dot(self.W)
+        y_pred = np.argmax(scores, axis=1)
         return y_pred
 
     def loss(self, X_batch, y_batch, reg):
