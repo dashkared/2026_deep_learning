@@ -142,7 +142,27 @@ def adam(w, dw, config=None):
     # NOTE: In order to match the reference output, please modify t _before_  #
     # using it in any calculations.                                           #
     ###########################################################################
-
+        # 1. Сначала обязательно увеличиваем счетчик шагов t
+    config["t"] += 1
+    t = config["t"]
+    
+    beta1 = config["beta1"]
+    beta2 = config["beta2"]
+    lr = config["learning_rate"]
+    eps = config["epsilon"]
+    m = config["m"]
+    v = config["v"]
+    # 2. Обновляем первый и второй моменты
+    m = beta1 * m + (1 - beta1) * dw
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
+    # 3. Коррекция смещения к нулю (Bias Correction)
+    m_hat = m / (1 - beta1 ** t)
+    v_hat = v / (1 - beta2 ** t)
+    # 4. Шаг обновления весов
+    next_w = w - lr * m_hat / (np.sqrt(v_hat) + eps)
+    # 5. Сохраняем обновленные m и v обратно в config
+    config["m"] = m
+    config["v"] = v
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

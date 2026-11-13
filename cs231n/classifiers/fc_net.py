@@ -214,6 +214,16 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to ones and shift     #
         # parameters should be initialized to zeros.                               #
         ############################################################################
+        layer_dims = [input_dim] + hidden_dims + [num_classes]
+
+        for i in range(1, self.num_layers + 1):
+            self.params[f"W{i}"] = np.random.normal(0, weight_scale, (layer_dims[i - 1], layer_dims[i]))
+            self.params[f"b{i}"] = np.zeros(layer_dims[i])
+            
+            # gamma и beta нужны для скрытых слоев (i < L)
+            if self.normalization in ["batchnorm", "layernorm"] and i < self.num_layers:
+                self.params[f"gamma{i}"] = np.ones(layer_dims[i])
+                self.params[f"beta{i}"] = np.zeros(layer_dims[i])
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -284,7 +294,32 @@ class FullyConnectedNet(object):
         # self.bn_params[1] to the forward pass for the second batch normalization #
         # layer, etc.                                                              #
         ############################################################################
-
+        caches = {}
+        out = X
+        for i in range(1, self.num_layers):
+            # А. Всегда Affine
+            out, fc_cache = affine_forward(out, self.params[f"W{i}"], self.params[f"b{i}"])
+            
+            # Б. BatchNorm (если включен)
+            bn_cache = None
+            if self.normalization == "batchnorm":
+                out, bn_cache = batchnorm_forward(out, self.params[f"gamma{i}"], self.params[f"beta{i}"], self.bn_params[i - 1])
+            elif self.normalization == "layernorm":
+                out, bn_cache = layernorm_forward(out, self.params[f"gamma{i}"], self.params[f"beta{i}"], self.bn_params[i - 1])
+                
+            # В. Всегда ReLU
+            out, relu_cache = relu_forward(out)
+            
+            # Г. Dropout (если включен)
+            dp_cache = None
+            if self.use_dropout:
+                out, dp_cache = dropout_forward(out, self.dropout_param)
+                
+            # Сохраняем все кэши скрытого слоя i
+            caches[i] = (fc_cache, bn_cache, relu_cache, dp_cache)
+            
+        scores, final_cache = affine_forward(out, self.params[f"W{self.num_layers}"], self.params[f"b{self.num_layers}"])
+        caches[self.num_layers] = final_cache
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -307,7 +342,40 @@ class FullyConnectedNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-
+        loss, dscores = softmax_loss(scores, y)
+        
+        for i in range(1, self.num_layers + 1):
+            W = self.params[f"W{i}"]
+            loss += 0.5 * self.reg * np.sum(W * W)
+            
+        dout, dW, db = affine_backward(dscores, caches[self.num_layers])
+        grads[f"W{self.num_layers}"] = dW + self.reg * self.params[f"W{self.num_layers}"]
+        grads[f"b{self.num_layers}"] = db
+        
+        for i in range(self.num_layers - 1, 0, -1):
+            fc_cache, bn_cache, relu_cache, dp_cache = caches[i]
+            
+            # 1. Если был Dropout — разматываем его первым:
+            if self.use_dropout:
+                dout = dropout_backward(dout, dp_cache)
+                
+            # 2. Всегда разматываем ReLU:
+            dout = relu_backward(dout, relu_cache)
+            
+            # 3. Если был BatchNorm — разматываем его и сохраняем градиенты dgamma, dbeta:
+            if self.normalization == "batchnorm":
+                dout, dgamma, dbeta = batchnorm_backward_alt(dout, bn_cache)
+                grads[f"gamma{i}"] = dgamma
+                grads[f"beta{i}"] = dbeta
+            elif self.normalization == "layernorm":
+                dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
+                grads[f"gamma{i}"] = dgamma
+                grads[f"beta{i}"] = dbeta
+                
+            # 4. Всегда разматываем Affine и сохраняем dW, db:
+            dout, dW, db = affine_backward(dout, fc_cache)
+            grads[f"W{i}"] = dW + self.reg * self.params[f"W{i}"]
+            grads[f"b{i}"] = db
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
